@@ -41,6 +41,7 @@ export default async function StaticDetailPage(props: { params: Promise<{ itemId
                 {/* メタ情報 */}
                 <div className="meta">
                     <p className="meta-item updated-at">更新日: {new Date(item.updatedAt).toLocaleDateString()}</p>
+                    <p className="meta-item updated-at">更新日: {new Date(item.updatedAt).toLocaleDateString()}</p>
                     <p className="meta-item release-date">リリース日: {new Date(item.releaseDate).toLocaleDateString()}</p>
                 </div>
 
