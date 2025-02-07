@@ -1,19 +1,19 @@
 import { getDetail, getItems } from "@/../libs/client";
-//import Link from "next/link"
+import { GetStaticPropsContext } from 'next';
 import Image from "next/image";
 
 export async function generateStaticParams() {
     const { contents } = await getItems();
 
     return contents.map((item) => ({
-        params: { itemId: item.id }, // 修正
+        itemId: item.id,
     }));
 }
 
 export default async function StaticDetailPage({
     params,
-}: { params: { itemId: string } }) { // 型定義を修正
-    const item = await getDetail(params.itemId);
+}: GetStaticPropsContext<{ itemId: string }>) {
+    const item = await getDetail(params!.itemId);
 
     // YouTubeのURLから埋め込み用URLに変換
     const getYouTubeEmbedUrl = (url: string) => {
@@ -35,7 +35,7 @@ export default async function StaticDetailPage({
                         width={item.thumbnail.width}
                         height={item.thumbnail.height}
                         className="thumbnail"
-                        layout="intrinsic" // 画像の比率を保持
+                        layout="intrinsic"
                     />
                 )}
 
