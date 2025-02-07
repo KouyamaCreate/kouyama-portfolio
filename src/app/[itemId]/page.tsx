@@ -1,5 +1,6 @@
 import { getDetail, getItems } from "@/../libs/client";
 import Link from "next/link"
+import Image from "next/image";
 
 export async function generateStaticParams() {
     const { contents } = await getItems();
@@ -33,12 +34,13 @@ export default async function StaticDetailPage({
 
                 {/* サムネイル */}
                 {item.thumbnail?.url && (
-                    <img
+                    <Image
                         src={item.thumbnail.url}
                         alt={item.title}
                         width={item.thumbnail.width}
                         height={item.thumbnail.height}
                         className="thumbnail"
+                        layout="intrinsic" // 画像の比率を保持
                     />
                 )}
 
@@ -119,8 +121,16 @@ export default async function StaticDetailPage({
                         <h2 className="section-title">フォトギャラリー</h2>
                         <div className="photo-list">
                             {item.photos.map((photo: string, index: number) => (
-                                <img key={index} src={photo} alt={`Photo ${index + 1}`} className="photo-item" />
+                                <Image
+                                    key={index}
+                                    src={photo}
+                                    alt={`Photo ${index + 1}`}
+                                    width={300} // 適切なサイズを設定
+                                    height={200} // 適切なサイズを設定
+                                    className="photo-item"
+                                />
                             ))}
+
                         </div>
                     </section>
                 )}
