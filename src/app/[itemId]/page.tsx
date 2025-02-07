@@ -5,20 +5,15 @@ import Image from "next/image";
 export async function generateStaticParams() {
     const { contents } = await getItems();
 
-    const paths = contents.map((item) => {
-        return {
-            itemId: item.id,
-        };
-    });
-    return [...paths];
+    return contents.map((item) => ({
+        params: { itemId: item.id }, // 修正
+    }));
 }
 
 export default async function StaticDetailPage({
-    params: { itemId },
-}: {
-    params: { itemId: string };
-}) {
-    const item = await getDetail(itemId);
+    params,
+}: { params: { itemId: string } }) { // 型定義を修正
+    const item = await getDetail(params.itemId);
 
     // YouTubeのURLから埋め込み用URLに変換
     const getYouTubeEmbedUrl = (url: string) => {
