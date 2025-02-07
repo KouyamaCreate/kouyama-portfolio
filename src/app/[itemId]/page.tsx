@@ -139,4 +139,4 @@ export default async function StaticDetailPage({
     )
 }
 
-//最新
+//最新ですよこれが。
