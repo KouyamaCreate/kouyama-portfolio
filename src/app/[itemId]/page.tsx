@@ -133,5 +133,3 @@ export default async function StaticDetailPage({
         </>
     )
 }
-
-//最新ですよこれが。
