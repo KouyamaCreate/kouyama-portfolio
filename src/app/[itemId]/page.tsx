@@ -10,7 +10,8 @@ export async function generateStaticParams() {
     }));
 }
 
-export default async function StaticDetailPage({ params }: { params: { itemId: string } }) {
+export default async function StaticDetailPage(props: { params: Promise<{ itemId: string }> }) {
+    const params = await props.params;
     const item = await getDetail(params.itemId);
 
     // YouTubeのURLから埋め込み用URLに変換
