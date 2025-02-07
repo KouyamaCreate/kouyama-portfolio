@@ -1,19 +1,17 @@
 import { getDetail, getItems } from "@/../libs/client";
-import { GetStaticPropsContext } from 'next';
 import Image from "next/image";
 
+// 動的なルートのパスを生成
 export async function generateStaticParams() {
     const { contents } = await getItems();
 
     return contents.map((item) => ({
-        itemId: item.id,
+        itemId: item.id, // ここを修正（params をつけない）
     }));
 }
 
-export default async function StaticDetailPage({
-    params,
-}: GetStaticPropsContext<{ itemId: string }>) {
-    const item = await getDetail(params!.itemId);
+export default async function StaticDetailPage({ params }: { params: { itemId: string } }) {
+    const item = await getDetail(params.itemId);
 
     // YouTubeのURLから埋め込み用URLに変換
     const getYouTubeEmbedUrl = (url: string) => {
