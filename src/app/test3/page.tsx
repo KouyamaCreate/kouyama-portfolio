@@ -138,7 +138,7 @@ export default function Page() {
         // 最後に十分な動きがあった時刻を記録（初期は現在時刻）
         let lastMovementTime = Date.now();
         // 動きがないと判断する閾値（度単位）
-        const movementThreshold = 0.5; // β,γそれぞれ0.5度未満の変化なら動きがないとする
+        const movementThreshold = 0.5; // β, γそれぞれ0.5度未満の変化なら動きがないとみなす
         // 一定期間動きがなかった場合の再キャリブレーション時間（ミリ秒）
         const inactivityDuration = 3000; // 3秒
 
@@ -178,7 +178,7 @@ export default function Page() {
             const relativeBeta = event.beta - (baseBeta || 0);
             const relativeGamma = event.gamma - (baseGamma || 0);
 
-            // 必要に応じて /2 して調整（元の処理と同様）
+            // 元の処理と同様に /2 して調整
             deviceRotationX = THREE.MathUtils.degToRad(relativeBeta / 2);
             deviceRotationY = THREE.MathUtils.degToRad(relativeGamma / 2);
         }
@@ -201,25 +201,22 @@ export default function Page() {
             const radius = 4;
             if (isMobile) {
                 // ─────────────────────────────────────────────
-                // モバイルの場合、ジンバルロック回避のためクォータニオンを使用
+                // モバイルの場合：ジンバルロック回避のため Euler を用いて回転を計算
                 // ─────────────────────────────────────────────
-                // 各軸回転のクォータニオンを作成
-                const qx = new THREE.Quaternion();
-                qx.setFromAxisAngle(new THREE.Vector3(1, 0, 0), deviceRotationX);
-                const qy = new THREE.Quaternion();
-                qy.setFromAxisAngle(new THREE.Vector3(0, 1, 0), deviceRotationY);
-                // 順序として yaw（Y軸回転）→ pitch（X軸回転）の順に合成
-                const combinedQuaternion = new THREE.Quaternion();
-                combinedQuaternion.multiplyQuaternions(qy, qx);
+                // ピッチ（X軸回転）が ±90°に近づかないようにクランプ
+                const clampedPitch = THREE.MathUtils.clamp(deviceRotationX, -Math.PI / 2 + 0.01, Math.PI / 2 - 0.01);
+                // Euler では順序 "YXZ"（まず Y軸回転→次に X軸回転）を採用
+                const euler = new THREE.Euler(clampedPitch, deviceRotationY, 0, "YXZ");
+                const quaternion = new THREE.Quaternion().setFromEuler(euler);
 
-                // カメラ位置のオフセットベクトル（Z軸方向に radius の距離）
+                // カメラ位置は Z軸方向に一定距離（radius）離した位置にオフセット
                 const offset = new THREE.Vector3(0, 0, radius);
-                offset.applyQuaternion(combinedQuaternion);
+                offset.applyQuaternion(quaternion);
                 camera.position.copy(offset);
                 camera.lookAt(0, 0, 0);
 
                 // オーバーレイの円も同じ回転を適用
-                circleMesh.quaternion.copy(combinedQuaternion);
+                circleMesh.quaternion.copy(quaternion);
             } else {
                 // PCの場合は従来通りマウス座標から計算
                 const rotationX = -1 * (mouseY - canvasHeight / 2) * 0.00012;
@@ -248,6 +245,7 @@ export default function Page() {
         if (isMobile) {
             const DeviceOrientationEventWithPermission = DeviceOrientationEvent as DeviceOrientationEventConstructorWithPermission;
             if (typeof DeviceOrientationEventWithPermission.requestPermission === "function") {
+                // ユーザー操作が必要なためボタン表示
                 setMotionPermissionNeeded(true);
             } else {
                 window.addEventListener("deviceorientation", handleDeviceOrientation);
