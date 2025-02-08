@@ -121,7 +121,7 @@ export default function Page() {
         circleMesh.renderOrder = 9999;
         scene.add(circleMesh);
 
-        // 回転補間用変数（PC用）
+        // PC用：マウス操作による回転補間用変数
         let targetAngleX = 0;
         let targetAngleY = 0;
         let currentAngleX = 0;
@@ -135,22 +135,22 @@ export default function Page() {
         // ジャイロの基準角度（起動時または一定時間動きがなかったときの値）を保持する変数
         let baseBeta: number | null = null;
         let baseGamma: number | null = null;
-        // 最後に十分な動きがあった時刻を記録（初期は現在時刻）
+        // 最後に十分な動きがあった時刻（初期は現在時刻）
         let lastMovementTime = Date.now();
         // 動きがないと判断する閾値（度単位）
-        const movementThreshold = 0.5; // β, γそれぞれ0.5度未満の変化なら動きがないとみなす
+        const movementThreshold = 0.5; // β, γともに 0.5 度未満の変化なら「動いていない」とみなす
         // 一定期間動きがなかった場合の再キャリブレーション時間（ミリ秒）
-        const inactivityDuration = 3000; // 3秒
+        const inactivityDuration = 3000; // 3 秒
 
         // モバイル判定
         const isMobile = /iPhone|iPad|Android|Mobile/i.test(navigator.userAgent);
 
-        // deviceorientation イベントハンドラー（基準角度との差分を利用）
+        // deviceorientation イベントハンドラー
         function handleDeviceOrientation(event: DeviceOrientationEvent) {
             if (event.beta === null || event.gamma === null) return;
             const now = Date.now();
 
-            // 初回または基準が未設定ならキャリブレーション（基準角度を設定）
+            // 初回または基準未設定時はキャリブレーション
             if (baseBeta === null || baseGamma === null) {
                 baseBeta = event.beta;
                 baseGamma = event.gamma;
@@ -161,11 +161,11 @@ export default function Page() {
             const deltaBeta = Math.abs(event.beta - baseBeta);
             const deltaGamma = Math.abs(event.gamma - baseGamma);
 
-            // 動きが閾値以上の場合、最後の動き時刻を更新
+            // 動きが閾値以上なら最終動作時刻を更新
             if (deltaBeta > movementThreshold || deltaGamma > movementThreshold) {
                 lastMovementTime = now;
             } else {
-                // 一定期間（inactivityDuration）動きがなければ、現在の角度を新たな基準としてリセット
+                // 一定期間動きがなければ、現在の角度を新たな基準としてリセット
                 if (now - lastMovementTime > inactivityDuration) {
                     baseBeta = event.beta;
                     baseGamma = event.gamma;
@@ -174,13 +174,19 @@ export default function Page() {
                 }
             }
 
-            // 現在の値から基準角度を差し引いた相対角度を計算
+            // 現在の値から基準角度を引いた相対角度（度）
             const relativeBeta = event.beta - (baseBeta || 0);
             const relativeGamma = event.gamma - (baseGamma || 0);
 
-            // 元の処理と同様に /2 して調整
-            deviceRotationX = THREE.MathUtils.degToRad(relativeBeta / 2);
-            deviceRotationY = THREE.MathUtils.degToRad(relativeGamma / 2);
+            // 実際のセンサの傾きの 1/5 だけ反映させ、かつ ±30° にクランプ
+            let tiltXDeg = relativeBeta * 0.2; // 1/5 倍
+            let tiltYDeg = relativeGamma * 0.2;
+            tiltXDeg = THREE.MathUtils.clamp(tiltXDeg, -30, 30);
+            tiltYDeg = THREE.MathUtils.clamp(tiltYDeg, -30, 30);
+
+            // ラジアンに変換して反映
+            deviceRotationX = THREE.MathUtils.degToRad(tiltXDeg);
+            deviceRotationY = THREE.MathUtils.degToRad(tiltYDeg);
         }
         // ref にイベントハンドラーを保存
         deviceOrientationHandlerRef.current = handleDeviceOrientation;
@@ -188,7 +194,7 @@ export default function Page() {
         const updateScene = () => {
             if (roomModel) {
                 roomModel.position.set(0, 0, 0);
-                // PCの場合はマウス座標から移動量を計算
+                // PCの場合：マウス座標から移動量を計算
                 const moveX = (mouseX - canvasWidth / 2) / 10;
                 const moveY = (canvasHeight / 2 - mouseY) / 10;
                 targetAngleX = moveY / 100;
@@ -201,24 +207,21 @@ export default function Page() {
             const radius = 4;
             if (isMobile) {
                 // ─────────────────────────────────────────────
-                // モバイルの場合：ジンバルロック回避のため Euler を用いて回転を計算
-                // ─────────────────────────────────────────────
-                // ピッチ（X軸回転）が ±90°に近づかないようにクランプ
-                const clampedPitch = THREE.MathUtils.clamp(deviceRotationX, -Math.PI / 2 + 0.01, Math.PI / 2 - 0.01);
-                // Euler では順序 "YXZ"（まず Y軸回転→次に X軸回転）を採用
-                const euler = new THREE.Euler(clampedPitch, deviceRotationY, 0, "YXZ");
+                // モバイルの場合：Euler を用いて回転を計算
+                // 既に deviceRotationX, deviceRotationY は 1/5 倍かつ ±30° にクランプ済み
+                const euler = new THREE.Euler(deviceRotationX, deviceRotationY, 0, "YXZ");
                 const quaternion = new THREE.Quaternion().setFromEuler(euler);
 
-                // カメラ位置は Z軸方向に一定距離（radius）離した位置にオフセット
+                // カメラ位置は Z 軸方向に一定距離（radius）離した位置にオフセット
                 const offset = new THREE.Vector3(0, 0, radius);
                 offset.applyQuaternion(quaternion);
                 camera.position.copy(offset);
                 camera.lookAt(0, 0, 0);
 
-                // オーバーレイの円も同じ回転を適用
+                // オーバーレイの円にも同じ回転を適用
                 circleMesh.quaternion.copy(quaternion);
             } else {
-                // PCの場合は従来通りマウス座標から計算
+                // PCの場合：従来通りマウス座標から計算
                 const rotationX = -1 * (mouseY - canvasHeight / 2) * 0.00012;
                 const rotationY = (mouseX - canvasWidth / 2) * 0.00003;
                 camera.position.x = radius * Math.sin(rotationY) * Math.cos(rotationX);
