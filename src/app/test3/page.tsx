@@ -10,7 +10,7 @@ interface DeviceOrientationEventConstructorWithPermission {
     requestPermission?: () => Promise<string>;
 }
 
-// 角度の差分を -180～+180 に正規化するヘルパー関数
+// 角度の差分を -180～+180 に正規化するヘルパー関数（β用）
 function normalizeAngleDifference(angle: number): number {
     let diff = angle % 360;
     if (diff > 180) diff -= 360;
@@ -166,10 +166,11 @@ export default function Page() {
 
             // 現在の角度と基準との差分（度）
             let rawRelativeBeta = event.beta - (baseBeta || 0);
-            let rawRelativeGamma = event.gamma - (baseGamma || 0);
-            // 角度差を -180～+180 に正規化
             rawRelativeBeta = normalizeAngleDifference(rawRelativeBeta);
-            rawRelativeGamma = normalizeAngleDifference(rawRelativeGamma);
+
+            let rawRelativeGamma = event.gamma - (baseGamma || 0);
+            // ※ gamma は元々 -90～+90 の範囲のため、360°周期の正規化は不要
+            rawRelativeGamma = THREE.MathUtils.clamp(rawRelativeGamma, -90, 90);
 
             // センサの傾きの1/5を反映（倍率 0.2）
             let tiltXDeg = rawRelativeBeta * 0.2;
@@ -177,7 +178,7 @@ export default function Page() {
 
             // tiltX（ピッチ）は ±30° にクランプ
             tiltXDeg = THREE.MathUtils.clamp(tiltXDeg, -30, 30);
-            // ※　もし左右の傾き（ヨー・roll）もクランプしたい場合は以下も有効
+            // 横方向（yaw）も同様にクランプ
             tiltYDeg = THREE.MathUtils.clamp(tiltYDeg, -30, 30);
 
             // ラジアンに変換して反映
