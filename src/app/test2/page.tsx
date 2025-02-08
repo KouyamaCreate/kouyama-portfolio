@@ -259,27 +259,23 @@ export default function Page() {
             }
         }
 
-        // スマホなら deviceorientation、PCならマウス移動
-        if ("DeviceOrientationEvent" in window) {
+        // モバイル判定によってデバイスの向きイベントを使うか判断する
+        const isMobile = /iPhone|iPad|Android|Mobile/i.test(navigator.userAgent);
+        if (isMobile && "DeviceOrientationEvent" in window) {
             window.addEventListener("deviceorientation", handleDeviceOrientation);
         } else {
-            (window as Window & typeof globalThis).addEventListener("mousemove", (event) => {
+            // PCの場合は従来通り mousemove イベントを使用
+            window.addEventListener("mousemove", (event) => {
                 mouseX = event.clientX;
                 mouseY = event.clientY;
 
-                // マウス座標を -1〜1 の正規化デバイス座標へ
                 pointer.x = (mouseX / canvasWidth) * 2 - 1;
                 pointer.y = -(mouseY / canvasHeight) * 2 + 1;
 
-                // Raycaster をセット
                 raycaster.setFromCamera(pointer, camera);
-
-                // Z=0 平面との交点を計算
                 const planeZ = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
                 const intersection = new THREE.Vector3();
                 raycaster.ray.intersectPlane(planeZ, intersection);
-
-                // 円を交点に配置
                 circleMesh.position.copy(intersection);
             });
         }
