@@ -72,14 +72,14 @@ export default function Page() {
                             mesh.material.forEach((material) => {
                                 if (material.name === targetMaterialName) {
                                     //(material as THREE.MeshStandardMaterial).map = new THREE.TextureLoader().load("/textures/test.png");
-                                    var video = document.createElement('video');
+                                    let video = document.createElement('video');
                                     video.src = "/textures/test.mp4";
                                     video.muted = true;
                                     video.loop = true;
                                     video.load();
                                     video.play();
                                     // 動画テクスチャ作成
-                                    var texture = new THREE.VideoTexture(video);
+                                    let texture = new THREE.VideoTexture(video);
                                     // 1テクセルが1ピクセルより大きな範囲をカバーするときのテクスチャサンプリング方法の指定
                                     texture.magFilter = THREE.LinearFilter;
                                     // 1テクセルが1ピクセルより小さな範囲をカバーするときのテクスチャサンプリング方法の指定
@@ -93,13 +93,13 @@ export default function Page() {
                             // 単一マテリアルの場合
                             if (mesh.material.name === targetMaterialName) {
                                 //(mesh.material as THREE.MeshStandardMaterial).map = new THREE.TextureLoader().load("/textures/test.png");
-                                var video = document.createElement('video');
+                                let video = document.createElement('video');
                                 video.src = "/textures/test.mp4";
                                 video.muted = true;
                                 video.loop = true;
                                 video.load();
                                 // 動画テクスチャ作成
-                                var texture = new THREE.VideoTexture(video);
+                                let texture = new THREE.VideoTexture(video);
                                 // 1テクセルが1ピクセルより大きな範囲をカバーするときのテクスチャサンプリング方法の指定
                                 texture.magFilter = THREE.LinearFilter;
                                 // 1テクセルが1ピクセルより小さな範囲をカバーするときのテクスチャサンプリング方法の指定
