@@ -32,8 +32,6 @@ export default function Page() {
 
         let mouseX: number = canvasWidth / 2;
         let mouseY: number = canvasHeight / 2;
-        //let roomSizeX: number = canvasWidth / 2;
-        //let roomSizeY: number = canvasHeight / 2;
         const circleSize: number = 0.2;
 
         const raycaster = new THREE.Raycaster();
@@ -61,18 +59,14 @@ export default function Page() {
             "/models/room.glb",
             (gltf) => {
                 roomModel = gltf.scene;
-                // ここでマテリアルやその他の設定を行う（必要に応じて調整）
                 const targetMaterialName = "display"; // 変更したいマテリアルの名前
-                //const newColor = new THREE.Color(0xff0000); // 赤色に変更
 
                 roomModel.traverse((object) => {
                     if ((object as THREE.Mesh).isMesh) {
                         const mesh = object as THREE.Mesh;
                         if (Array.isArray(mesh.material)) {
-                            // マルチマテリアルの場合
                             mesh.material.forEach((material) => {
                                 if (material.name === targetMaterialName) {
-                                    //(material as THREE.MeshStandardMaterial).map = new THREE.TextureLoader().load("/textures/test.png");
                                     const video = document.createElement("video");
                                     video.muted = true;
                                     video.autoplay = true;
@@ -81,21 +75,15 @@ export default function Page() {
                                     video.loop = true;
                                     video.load();
                                     video.play();
-                                    // 動画テクスチャ作成
                                     const texture = new THREE.VideoTexture(video);
-                                    // 1テクセルが1ピクセルより大きな範囲をカバーするときのテクスチャサンプリング方法の指定
                                     texture.magFilter = THREE.LinearFilter;
-                                    // 1テクセルが1ピクセルより小さな範囲をカバーするときのテクスチャサンプリング方法の指定
                                     texture.minFilter = THREE.LinearFilter;
-                                    // 動画テクスチャフォーマットの指定
                                     texture.format = THREE.RGBFormat;
                                     (material as THREE.MeshStandardMaterial).map = texture;
                                 }
                             });
                         } else {
-                            // 単一マテリアルの場合
                             if (mesh.material.name === targetMaterialName) {
-                                //(mesh.material as THREE.MeshStandardMaterial).map = new THREE.TextureLoader().load("/textures/test.png");
                                 const video = document.createElement("video");
                                 video.muted = true;
                                 video.autoplay = true;
@@ -103,13 +91,9 @@ export default function Page() {
                                 video.src = "/textures/test.webm";
                                 video.loop = true;
                                 video.load();
-                                // 動画テクスチャ作成
                                 const texture = new THREE.VideoTexture(video);
-                                // 1テクセルが1ピクセルより大きな範囲をカバーするときのテクスチャサンプリング方法の指定
                                 texture.magFilter = THREE.LinearFilter;
-                                // 1テクセルが1ピクセルより小さな範囲をカバーするときのテクスチャサンプリング方法の指定
                                 texture.minFilter = THREE.LinearFilter;
-                                // 動画テクスチャフォーマットの指定
                                 texture.format = THREE.RGBFormat;
                                 (mesh.material as THREE.MeshStandardMaterial).map = texture;
                                 video.play();
@@ -144,23 +128,64 @@ export default function Page() {
         let currentAngleY = 0;
         const animationSpeed = 0.3;
 
-        // デバイスの向きを保持する変数
+        // モバイル用：デバイスの向きを保持する変数
         let deviceRotationX = 0;
         let deviceRotationY = 0;
+
+        // ジャイロの基準角度（起動時または一定時間動きがなかったときの値）を保持する変数
+        let baseBeta: number | null = null;
+        let baseGamma: number | null = null;
+        // 最後に十分な動きがあった時刻を記録（初期は現在時刻）
+        let lastMovementTime = Date.now();
+        // 動きがないと判断する閾値（度単位）
+        const movementThreshold = 0.5; // β,γそれぞれ0.5度未満の変化なら動きがないとする
+        // 一定期間動きがなかった場合の再キャリブレーション時間（ミリ秒）
+        const inactivityDuration = 3000; // 3秒
 
         // モバイル判定
         const isMobile = /iPhone|iPad|Android|Mobile/i.test(navigator.userAgent);
 
-        // deviceorientation イベントハンドラー
+        // deviceorientation イベントハンドラー（基準角度との差分を利用）
         function handleDeviceOrientation(event: DeviceOrientationEvent) {
-            if (event.beta !== null && event.gamma !== null) {
-                // event.beta: 前後の傾き（-180～180）、event.gamma: 左右の傾き（-90～90）
-                deviceRotationX = THREE.MathUtils.degToRad(event.beta / 2);
-                deviceRotationY = THREE.MathUtils.degToRad(event.gamma / 2);
-                // オーバーレイの円にも反映（任意）
-                circleMesh.rotation.x = deviceRotationX;
-                circleMesh.rotation.y = deviceRotationY;
+            if (event.beta === null || event.gamma === null) return;
+            const now = Date.now();
+
+            // 初回または基準が未設定ならキャリブレーション（基準角度を設定）
+            if (baseBeta === null || baseGamma === null) {
+                baseBeta = event.beta;
+                baseGamma = event.gamma;
+                lastMovementTime = now;
             }
+
+            // 現在の角度と基準角度との差分（絶対値）
+            const deltaBeta = Math.abs(event.beta - baseBeta);
+            const deltaGamma = Math.abs(event.gamma - baseGamma);
+
+            // 動きが閾値以上の場合、最後の動き時刻を更新
+            if (deltaBeta > movementThreshold || deltaGamma > movementThreshold) {
+                lastMovementTime = now;
+            } else {
+                // 一定期間（inactivityDuration）動きがなければ、現在の角度を新たな基準としてリセット
+                if (now - lastMovementTime > inactivityDuration) {
+                    baseBeta = event.beta;
+                    baseGamma = event.gamma;
+                    // リセット時はデバッグ用にログを出力
+                    console.log("基準角度をリセットしました。", { baseBeta, baseGamma });
+                    lastMovementTime = now; // リセット直後の時刻を更新
+                }
+            }
+
+            // 現在の値から基準角度を差し引いた相対角度を計算
+            const relativeBeta = event.beta - (baseBeta || 0);
+            const relativeGamma = event.gamma - (baseGamma || 0);
+
+            // 元のコードと同様に/2して値を調整
+            deviceRotationX = THREE.MathUtils.degToRad(relativeBeta / 2);
+            deviceRotationY = THREE.MathUtils.degToRad(relativeGamma / 2);
+
+            // オーバーレイの円にも反映（任意）
+            circleMesh.rotation.x = deviceRotationX;
+            circleMesh.rotation.y = deviceRotationY;
         }
         // ref にイベントハンドラーを保存
         deviceOrientationHandlerRef.current = handleDeviceOrientation;
