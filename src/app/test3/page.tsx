@@ -62,6 +62,62 @@ export default function Page() {
             (gltf) => {
                 roomModel = gltf.scene;
                 // ここでマテリアルやその他の設定を行う（必要に応じて調整）
+                const targetMaterialName = "display"; // 変更したいマテリアルの名前
+                //const newColor = new THREE.Color(0xff0000); // 赤色に変更
+
+                roomModel.traverse((object) => {
+                    if ((object as THREE.Mesh).isMesh) {
+                        const mesh = object as THREE.Mesh;
+                        if (Array.isArray(mesh.material)) {
+                            // マルチマテリアルの場合
+                            mesh.material.forEach((material) => {
+                                if (material.name === targetMaterialName) {
+                                    //(material as THREE.MeshStandardMaterial).map = new THREE.TextureLoader().load("/textures/test.png");
+                                    const video = document.createElement("video");
+                                    video.muted = true;
+                                    video.autoplay = true;
+                                    video.setAttribute("playsinline", "");
+                                    video.src = "/textures/test.webm";
+                                    video.loop = true;
+                                    video.load();
+                                    video.play();
+                                    // 動画テクスチャ作成
+                                    const texture = new THREE.VideoTexture(video);
+                                    // 1テクセルが1ピクセルより大きな範囲をカバーするときのテクスチャサンプリング方法の指定
+                                    texture.magFilter = THREE.LinearFilter;
+                                    // 1テクセルが1ピクセルより小さな範囲をカバーするときのテクスチャサンプリング方法の指定
+                                    texture.minFilter = THREE.LinearFilter;
+                                    // 動画テクスチャフォーマットの指定
+                                    texture.format = THREE.RGBFormat;
+                                    (material as THREE.MeshStandardMaterial).map = texture;
+                                }
+                            });
+                        } else {
+                            // 単一マテリアルの場合
+                            if (mesh.material.name === targetMaterialName) {
+                                //(mesh.material as THREE.MeshStandardMaterial).map = new THREE.TextureLoader().load("/textures/test.png");
+                                const video = document.createElement("video");
+                                video.muted = true;
+                                video.autoplay = true;
+                                video.setAttribute("playsinline", "");
+                                video.src = "/textures/test.webm";
+                                video.loop = true;
+                                video.load();
+                                // 動画テクスチャ作成
+                                const texture = new THREE.VideoTexture(video);
+                                // 1テクセルが1ピクセルより大きな範囲をカバーするときのテクスチャサンプリング方法の指定
+                                texture.magFilter = THREE.LinearFilter;
+                                // 1テクセルが1ピクセルより小さな範囲をカバーするときのテクスチャサンプリング方法の指定
+                                texture.minFilter = THREE.LinearFilter;
+                                // 動画テクスチャフォーマットの指定
+                                texture.format = THREE.RGBFormat;
+                                (mesh.material as THREE.MeshStandardMaterial).map = texture;
+                                video.play();
+                            }
+                        }
+                    }
+                });
+
                 roomModel.position.set(0, 0, 0);
                 scene.add(roomModel);
             },
