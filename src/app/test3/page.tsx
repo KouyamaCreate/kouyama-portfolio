@@ -121,7 +121,7 @@ export default function Page() {
         circleMesh.renderOrder = 9999;
         scene.add(circleMesh);
 
-        // 回転補間用変数
+        // 回転補間用変数（PC用）
         let targetAngleX = 0;
         let targetAngleY = 0;
         let currentAngleX = 0;
@@ -169,9 +169,8 @@ export default function Page() {
                 if (now - lastMovementTime > inactivityDuration) {
                     baseBeta = event.beta;
                     baseGamma = event.gamma;
-                    // リセット時はデバッグ用にログを出力
                     console.log("基準角度をリセットしました。", { baseBeta, baseGamma });
-                    lastMovementTime = now; // リセット直後の時刻を更新
+                    lastMovementTime = now;
                 }
             }
 
@@ -179,13 +178,9 @@ export default function Page() {
             const relativeBeta = event.beta - (baseBeta || 0);
             const relativeGamma = event.gamma - (baseGamma || 0);
 
-            // 元のコードと同様に/2して値を調整
+            // 必要に応じて /2 して調整（元の処理と同様）
             deviceRotationX = THREE.MathUtils.degToRad(relativeBeta / 2);
             deviceRotationY = THREE.MathUtils.degToRad(relativeGamma / 2);
-
-            // オーバーレイの円にも反映（任意）
-            circleMesh.rotation.x = deviceRotationX;
-            circleMesh.rotation.y = deviceRotationY;
         }
         // ref にイベントハンドラーを保存
         deviceOrientationHandlerRef.current = handleDeviceOrientation;
@@ -205,21 +200,35 @@ export default function Page() {
 
             const radius = 4;
             if (isMobile) {
-                // モバイルの場合はデバイスの向きからカメラ位置を計算
-                camera.position.x = radius * Math.sin(deviceRotationY) * Math.cos(deviceRotationX);
-                camera.position.y = radius * Math.sin(deviceRotationX);
-                camera.position.z = radius * Math.cos(deviceRotationY) * Math.cos(deviceRotationX);
+                // ─────────────────────────────────────────────
+                // モバイルの場合、ジンバルロック回避のためクォータニオンを使用
+                // ─────────────────────────────────────────────
+                // 各軸回転のクォータニオンを作成
+                const qx = new THREE.Quaternion();
+                qx.setFromAxisAngle(new THREE.Vector3(1, 0, 0), deviceRotationX);
+                const qy = new THREE.Quaternion();
+                qy.setFromAxisAngle(new THREE.Vector3(0, 1, 0), deviceRotationY);
+                // 順序として yaw（Y軸回転）→ pitch（X軸回転）の順に合成
+                const combinedQuaternion = new THREE.Quaternion();
+                combinedQuaternion.multiplyQuaternions(qy, qx);
+
+                // カメラ位置のオフセットベクトル（Z軸方向に radius の距離）
+                const offset = new THREE.Vector3(0, 0, radius);
+                offset.applyQuaternion(combinedQuaternion);
+                camera.position.copy(offset);
+                camera.lookAt(0, 0, 0);
+
+                // オーバーレイの円も同じ回転を適用
+                circleMesh.quaternion.copy(combinedQuaternion);
             } else {
-                // PCの場合はマウス座標から計算
+                // PCの場合は従来通りマウス座標から計算
                 const rotationX = -1 * (mouseY - canvasHeight / 2) * 0.00012;
                 const rotationY = (mouseX - canvasWidth / 2) * 0.00003;
                 camera.position.x = radius * Math.sin(rotationY) * Math.cos(rotationX);
                 camera.position.y = radius * Math.sin(rotationX);
                 camera.position.z = radius * Math.cos(rotationY) * Math.cos(rotationX);
-            }
-            camera.lookAt(0, 0, 0);
-
-            if (!isMobile) {
+                camera.lookAt(0, 0, 0);
+                // 円の位置更新
                 raycaster.setFromCamera(pointer, camera);
                 const planeZ = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
                 const intersection = new THREE.Vector3();
@@ -237,13 +246,10 @@ export default function Page() {
 
         // イベントリスナーの登録
         if (isMobile) {
-            // iOS の場合、requestPermission の存在を確認
             const DeviceOrientationEventWithPermission = DeviceOrientationEvent as DeviceOrientationEventConstructorWithPermission;
             if (typeof DeviceOrientationEventWithPermission.requestPermission === "function") {
-                // ユーザー操作が必要なため、ボタン表示を促す
                 setMotionPermissionNeeded(true);
             } else {
-                // 許可不要な環境の場合は即登録
                 window.addEventListener("deviceorientation", handleDeviceOrientation);
             }
         } else {
