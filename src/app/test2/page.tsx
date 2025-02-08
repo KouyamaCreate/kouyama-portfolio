@@ -25,8 +25,8 @@ export default function Page() {
 
         let mouseX: number = canvasWidth / 2;
         let mouseY: number = canvasHeight / 2;
-        let moveX: number = 0;
-        let moveY: number = 0;
+        //let moveX: number = 0;
+        //let moveY: number = 0;
         let roomSizeX: number = canvasWidth / 2;
         let roomSizeY: number = canvasHeight / 2;
         const circleSize: number = 0.2;
@@ -62,7 +62,7 @@ export default function Page() {
                 roomModel = gltf.scene;
 
                 const targetMaterialName = "display"; // 変更したいマテリアルの名前
-                const newColor = new THREE.Color(0xff0000); // 赤色に変更
+                //const newColor = new THREE.Color(0xff0000); // 赤色に変更
 
                 roomModel.traverse((object) => {
                     if ((object as THREE.Mesh).isMesh) {
@@ -147,11 +147,11 @@ export default function Page() {
         */
         const updateScene = () => {
             // マウス中心からのオフセット（ピクセル値）
-            const offsetX = mouseX - canvasWidth / 2;
-            const offsetY = canvasHeight / 2 - mouseY; // Y軸は上方向が正
+            //const offsetX = mouseX - canvasWidth / 2;
+            //const offsetY = canvasHeight / 2 - mouseY; // Y軸は上方向が正
             // これをワールド座標系に変換（ここでは 100 で割る例）
-            const worldOffsetX = offsetX / 100;
-            const worldOffsetY = offsetY / 100;
+            //const worldOffsetX = offsetX / 100;
+            //const worldOffsetY = offsetY / 100;
 
             if (roomModel) {
                 roomModel.position.set(0, 0, 0);
