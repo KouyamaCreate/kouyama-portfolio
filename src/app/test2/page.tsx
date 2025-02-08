@@ -261,7 +261,7 @@ export default function Page() {
 
         // モバイル判定によってデバイスの向きイベントを使うか判断する
         const isMobile = /iPhone|iPad|Android|Mobile/i.test(navigator.userAgent);
-        if (isMobile && "DeviceOrientationEvent" in window && false) {
+        if (isMobile && "DeviceOrientationEvent" in window) {
             window.addEventListener("deviceorientation", handleDeviceOrientation);
         } else {
             // PCの場合は従来通り mousemove イベントを使用
