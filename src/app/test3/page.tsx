@@ -22,24 +22,30 @@ export default function Page() {
     // モーションパーミッションの状態管理
     const [motionPermissionNeeded, setMotionPermissionNeeded] = useState(false);
     const [motionPermissionGranted, setMotionPermissionGranted] = useState(false);
-    // deviceorientation イベントハンドラーを参照するための ref
+    // deviceorientation 用ハンドラーを外部から参照できるようにする ref
     const deviceOrientationHandlerRef = useRef<((event: DeviceOrientationEvent) => void) | null>(null);
 
     useEffect(() => {
         let canvasWidth: number = window.innerWidth;
         let canvasHeight: number = window.innerHeight;
 
-        // シーンの作成
+        // シーン作成
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0xffffff);
 
-        // カメラの作成
+        // カメラ作成
         const camera = new THREE.PerspectiveCamera(75, canvasWidth / canvasHeight, 0.1, 1000);
-        const radius = 4;
-        // 初期位置は仮設定。後でセンサ値に基づき球面座標で更新する
-        camera.position.set(0, 0, radius);
+        camera.position.set(0, 0, 4);
+        camera.lookAt(new THREE.Vector3(0, 0, 0));
 
-        // レンダラーの作成
+        let mouseX: number = canvasWidth / 2;
+        let mouseY: number = canvasHeight / 2;
+        const circleSize: number = 0.2;
+
+        const raycaster = new THREE.Raycaster();
+        const pointer = new THREE.Vector2();
+
+        // レンダラー作成
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(canvasWidth, canvasHeight);
         const container = document.getElementById("three-container");
@@ -47,7 +53,7 @@ export default function Page() {
             container.appendChild(renderer.domElement);
         }
 
-        // ライティングの追加
+        // ライティング追加
         const ambientLight = new THREE.AmbientLight(0xffffff, 2.0);
         scene.add(ambientLight);
         const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
@@ -112,8 +118,7 @@ export default function Page() {
             }
         );
 
-        // マウスカーソルに追従する円（PC用）を作成
-        const circleSize: number = 0.2;
+        // マウスカーソルに追従する円作成
         const circleGeometry = new THREE.CircleGeometry(circleSize / 2, 32);
         const circleMaterial = new THREE.MeshBasicMaterial({
             color: 0x000000,
@@ -123,16 +128,25 @@ export default function Page() {
         circleMesh.renderOrder = 9999;
         scene.add(circleMesh);
 
-        // モバイル用：センサ値から算出した角度（ラジアン）の保持変数
-        // deviceRotationX：垂直方向（ピッチ）、deviceRotationY：水平方向（ヨー）
+        // PC用：マウス操作での回転補間変数
+        let targetAngleX = 0;
+        let targetAngleY = 0;
+        let currentAngleX = 0;
+        let currentAngleY = 0;
+        const animationSpeed = 0.3;
+
+        // モバイル用：デバイスの向きを保持する変数（ラジアン）
         let deviceRotationX = 0;
         let deviceRotationY = 0;
 
-        // センサの基準値（起動時または一定時間動きがなかったときの値）
+        // ジャイロの基準角度（起動時または一定時間動きがなかったときの値）を保持
         let baseBeta: number | null = null;
         let baseGamma: number | null = null;
+        // 最後に十分な動きがあった時刻（初期は現在時刻）
         let lastMovementTime = Date.now();
-        const movementThreshold = 0.5; // 0.5°未満の変化なら「動いていない」とみなす
+        // 動きがないと判断する閾値（度単位）
+        const movementThreshold = 0.5; // β, γともに 0.5°未満の変化なら「動いていない」とみなす
+        // 一定期間動きがなければ再キャリブレーション（ミリ秒）
         const inactivityDuration = 3000; // 3秒
 
         // モバイル判定
@@ -143,66 +157,92 @@ export default function Page() {
             if (event.beta === null || event.gamma === null) return;
             const now = Date.now();
 
-            // 初回または基準未設定ならキャリブレーション
+            // 初回または基準未設定時はキャリブレーション
             if (baseBeta === null || baseGamma === null) {
                 baseBeta = event.beta;
                 baseGamma = event.gamma;
                 lastMovementTime = now;
             }
 
-            // 垂直方向（β）の差分は正規化して算出
+            // 現在の角度と基準との差分（度）
             let rawRelativeBeta = event.beta - (baseBeta || 0);
+            let rawRelativeGamma = event.gamma - (baseGamma || 0);
+            // 角度差を -180～+180 に正規化
             rawRelativeBeta = normalizeAngleDifference(rawRelativeBeta);
-            // 水平方向（γ）はそのまま差分を算出（通常は -90～90 の範囲）
-            const rawRelativeGamma = event.gamma - (baseGamma || 0);
+            rawRelativeGamma = normalizeAngleDifference(rawRelativeGamma);
 
-            // センサ値の 1/5（倍率 0.2）を反映
+            // センサの傾きの1/5を反映（倍率 0.2）
             let tiltXDeg = rawRelativeBeta * 0.2;
             let tiltYDeg = rawRelativeGamma * 0.2;
-            // 各軸とも ±30° にクランプ（その角度で止める）
+
+            // tiltX（ピッチ）は ±30° にクランプ
             tiltXDeg = THREE.MathUtils.clamp(tiltXDeg, -30, 30);
+            // ※　もし左右の傾き（ヨー・roll）もクランプしたい場合は以下も有効
             tiltYDeg = THREE.MathUtils.clamp(tiltYDeg, -30, 30);
 
-            // ラジアンに変換して保持
+            // ラジアンに変換して反映
             deviceRotationX = THREE.MathUtils.degToRad(tiltXDeg);
             deviceRotationY = THREE.MathUtils.degToRad(tiltYDeg);
 
-            // 動きが閾値以上なら最終動作時刻を更新し、なければ一定時間後に再キャリブレーション
+            // 動きが閾値以上なら最終動作時刻更新
             if (Math.abs(rawRelativeBeta) > movementThreshold || Math.abs(rawRelativeGamma) > movementThreshold) {
                 lastMovementTime = now;
-            } else if (now - lastMovementTime > inactivityDuration) {
-                baseBeta = event.beta;
-                baseGamma = event.gamma;
-                console.log("基準角度をリセットしました。", { baseBeta, baseGamma });
-                lastMovementTime = now;
+            } else {
+                // 一定期間動きがなければ、現在の角度を新たな基準に再設定
+                if (now - lastMovementTime > inactivityDuration) {
+                    baseBeta = event.beta;
+                    baseGamma = event.gamma;
+                    console.log("基準角度をリセットしました。", { baseBeta, baseGamma });
+                    lastMovementTime = now;
+                }
             }
         }
+        // ハンドラーを ref に保存
         deviceOrientationHandlerRef.current = handleDeviceOrientation;
 
-        // updateScene でカメラ位置およびその他オブジェクトの更新
         const updateScene = () => {
             if (roomModel) {
                 roomModel.position.set(0, 0, 0);
+                // PCの場合：マウス座標から移動量を計算
+                const moveX = (mouseX - canvasWidth / 2) / 10;
+                const moveY = (canvasHeight / 2 - mouseY) / 10;
+                targetAngleX = moveY / 100;
+                targetAngleY = moveX / 100;
+                currentAngleX += (targetAngleX - currentAngleX) * animationSpeed;
+                currentAngleY += (targetAngleY - currentAngleY) * animationSpeed;
                 roomModel.scale.set(canvasWidth / 300, canvasHeight / 300, 2.5);
             }
 
+            const radius = 4;
             if (isMobile) {
-                // センサから得た deviceRotationX（ピッチ）と deviceRotationY（ヨー）をもとに
-                // 球面座標を用いてカメラの位置を更新する
-                // φ = π/2 - ピッチ、θ = ヨー とする
-                const phi = Math.PI / 2 - deviceRotationX;
-                const theta = deviceRotationY;
-                const posX = radius * Math.sin(phi) * Math.cos(theta);
-                const posY = radius * Math.cos(phi);
-                const posZ = radius * Math.sin(phi) * Math.sin(theta);
-                camera.position.set(posX, posY, posZ);
+                // ─────────────────────────────
+                // モバイルの場合：Euler を用いて回転計算
+                // deviceRotationX（ピッチ）は ±30°にクランプ済み
+                const euler = new THREE.Euler(deviceRotationX, deviceRotationY, 0, "YXZ");
+                const quaternion = new THREE.Quaternion().setFromEuler(euler);
+
+                // カメラ位置は Z 軸方向に一定距離（radius）離した位置にオフセット
+                const offset = new THREE.Vector3(0, 0, radius);
+                offset.applyQuaternion(quaternion);
+                camera.position.copy(offset);
                 camera.lookAt(0, 0, 0);
 
-                // オーバーレイ用の円はカメラのワールド回転を反映
-                circleMesh.quaternion.copy(camera.getWorldQuaternion(new THREE.Quaternion()));
+                // オーバーレイの円にも同じ回転を適用
+                circleMesh.quaternion.copy(quaternion);
             } else {
-                // PCの場合は必要に応じたマウス操作等で更新（ここでは簡易的な例）
-                // ※必要ならマウス操作の値（mouseX, mouseY）からカメラ位置を計算してください
+                // PCの場合：従来通りマウス座標から計算
+                const rotationX = -1 * (mouseY - canvasHeight / 2) * 0.00012;
+                const rotationY = (mouseX - canvasWidth / 2) * 0.00003;
+                camera.position.x = radius * Math.sin(rotationY) * Math.cos(rotationX);
+                camera.position.y = radius * Math.sin(rotationX);
+                camera.position.z = radius * Math.cos(rotationY) * Math.cos(rotationX);
+                camera.lookAt(0, 0, 0);
+                // 円の位置更新
+                raycaster.setFromCamera(pointer, camera);
+                const planeZ = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+                const intersection = new THREE.Vector3();
+                raycaster.ray.intersectPlane(planeZ, intersection);
+                circleMesh.position.copy(intersection);
             }
         };
 
@@ -217,15 +257,18 @@ export default function Page() {
         if (isMobile) {
             const DeviceOrientationEventWithPermission = DeviceOrientationEvent as DeviceOrientationEventConstructorWithPermission;
             if (typeof DeviceOrientationEventWithPermission.requestPermission === "function") {
-                // iOS などではユーザー操作が必要なためボタン表示
+                // ユーザー操作が必要なためボタン表示
                 setMotionPermissionNeeded(true);
             } else {
                 window.addEventListener("deviceorientation", handleDeviceOrientation);
             }
         } else {
-            /*window.addEventListener("mousemove", (event) => {
-                // PC 用のマウス操作（必要に応じて実装してください）
-            });*/
+            window.addEventListener("mousemove", (event) => {
+                mouseX = event.clientX;
+                mouseY = event.clientY;
+                pointer.x = (mouseX / canvasWidth) * 2 - 1;
+                pointer.y = -(mouseY / canvasHeight) * 2 + 1;
+            });
         }
 
         window.addEventListener("resize", () => {
@@ -245,7 +288,7 @@ export default function Page() {
         };
     }, []);
 
-    // iOS 用：モーションアクセス許可をリクエストするハンドラー
+    // iOS用：モーションアクセス許可リクエストハンドラー
     const requestMotionPermission = () => {
         const DeviceOrientationEventWithPermission = DeviceOrientationEvent as DeviceOrientationEventConstructorWithPermission;
         if (typeof DeviceOrientationEventWithPermission.requestPermission === "function") {
