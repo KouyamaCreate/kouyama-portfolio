@@ -145,7 +145,7 @@ export default function Page() {
         // 最後に十分な動きがあった時刻（初期は現在時刻）
         let lastMovementTime = Date.now();
         // 動きがないと判断する閾値（度単位）
-        const movementThreshold = 0.5; // β, γともに 0.5°未満の変化なら「動いていない」とみなす
+        const movementThreshold = 0.5; // β, γともに 0.5°未満なら「動いていない」とみなす
         // 一定期間動きがなければ再キャリブレーション（ミリ秒）
         const inactivityDuration = 3000; // 3秒
 
@@ -157,42 +157,44 @@ export default function Page() {
             if (event.beta === null || event.gamma === null) return;
             const now = Date.now();
 
-            // 初回または基準未設定時はキャリブレーション
-            if (baseBeta === null || baseGamma === null) {
+            // 初回キャリブレーション時：両軸の初期値を保存する
+            if (baseBeta === null) {
                 baseBeta = event.beta;
+            }
+            if (baseGamma === null) {
                 baseGamma = event.gamma;
-                lastMovementTime = now;
             }
 
-            // 現在の角度と基準との差分（度）
-            let rawRelativeBeta = event.beta - (baseBeta || 0);
+            // 現在の角度と基準との差分（度）を算出
+            let rawRelativeBeta = event.beta - baseBeta;
             rawRelativeBeta = normalizeAngleDifference(rawRelativeBeta);
 
-            let rawRelativeGamma = event.gamma - (baseGamma || 0);
-            // ※ gamma は元々 -90～+90 の範囲のため、360°周期の正規化は不要
+            // ※ γ は -90～+90 の範囲内で得られるので、そのままでよい
+            let rawRelativeGamma = event.gamma - baseGamma;
             rawRelativeGamma = THREE.MathUtils.clamp(rawRelativeGamma, -90, 90);
 
-            // センサの傾きの1/5を反映（倍率 0.2）
+            // 反映倍率 0.2（両軸とも）で調整
             let tiltXDeg = rawRelativeBeta * 0.2;
             let tiltYDeg = rawRelativeGamma * 0.2;
 
-            // tiltX（ピッチ）は ±30° にクランプ
+            // 両軸とも ±30° にクランプ
             tiltXDeg = THREE.MathUtils.clamp(tiltXDeg, -30, 30);
-            // 横方向（yaw）も同様にクランプ
             tiltYDeg = THREE.MathUtils.clamp(tiltYDeg, -30, 30);
 
-            // ラジアンに変換して反映
+            // 縦方向はそのままラジアン変換  
             deviceRotationX = THREE.MathUtils.degToRad(tiltXDeg);
-            deviceRotationY = THREE.MathUtils.degToRad(tiltYDeg);
+            // 横方向は符号反転して変換（※ここが修正ポイント）
+            deviceRotationY = THREE.MathUtils.degToRad(-tiltYDeg);
 
-            // 動きが閾値以上なら最終動作時刻更新
+            // 動きが閾値以上なら最終動作時刻更新（β も含む）
             if (Math.abs(rawRelativeBeta) > movementThreshold || Math.abs(rawRelativeGamma) > movementThreshold) {
                 lastMovementTime = now;
             } else {
-                // 一定期間動きがなければ、現在の角度を新たな基準に再設定
+                // 一定期間動きがなければ縦方向（β）のみ基準角度をリセットする  
+                // ※ 横方向（γ）は固定することで、急激な反転を防ぎます。
                 if (now - lastMovementTime > inactivityDuration) {
                     baseBeta = event.beta;
-                    baseGamma = event.gamma;
+                    // baseGamma の再キャリブレーションは行わない
                     console.log("基準角度をリセットしました。", { baseBeta, baseGamma });
                     lastMovementTime = now;
                 }
