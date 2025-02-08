@@ -156,8 +156,8 @@ export default function Page() {
             if (roomModel) {
                 roomModel.position.set(0, 0, 0);
 
-                let moveX = (mouseX - canvasWidth / 2) / 10;
-                let moveY = (canvasHeight / 2 - mouseY) / 10; // Y軸を反転
+                const moveX = (mouseX - canvasWidth / 2) / 10;
+                const moveY = (canvasHeight / 2 - mouseY) / 10; // Y軸を反転
 
                 // 回転角度の設定（マウスオフセットが一定以上の場合に傾きを付与）
                 /*if (offsetY > 50) {
@@ -204,12 +204,12 @@ export default function Page() {
 
             const roomX = canvasWidth / 2 - roomSizeX / 2;
             const roomY = canvasHeight / 2 - roomSizeY / 2;
-            const roomCenterX = roomX + roomSizeX / 2;
-            const roomCenterY = roomY + roomSizeY / 2;
+            //const roomCenterX = roomX + roomSizeX / 2;
+            //const roomCenterY = roomY + roomSizeY / 2;
 
             // 円の更新（マウスカーソル位置の縦反転対応）
-            const circleX = mouseX;
-            const circleY = canvasHeight - mouseY; // Y軸を反転
+            //const circleX = mouseX;
+            //const circleY = canvasHeight - mouseY; // Y軸を反転
             // circleMesh.position.set(circleX, circleY, 0);
 
             // 傾きの計算（領域に応じて角度設定）
