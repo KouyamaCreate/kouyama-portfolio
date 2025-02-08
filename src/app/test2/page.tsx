@@ -263,7 +263,7 @@ export default function Page() {
         if ("DeviceOrientationEvent" in window) {
             window.addEventListener("deviceorientation", handleDeviceOrientation);
         } else {
-            (window as Window).addEventListener("mousemove", (event) => {
+            (window as Window & typeof globalThis).addEventListener("mousemove", (event) => {
                 mouseX = event.clientX;
                 mouseY = event.clientY;
 
