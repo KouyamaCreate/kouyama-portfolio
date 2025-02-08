@@ -154,7 +154,7 @@ export default function Page() {
             let rawRelativeBeta = event.beta - (baseBeta || 0);
             rawRelativeBeta = normalizeAngleDifference(rawRelativeBeta);
             // 水平方向（γ）はそのまま差分を算出（通常は -90～90 の範囲）
-            let rawRelativeGamma = event.gamma - (baseGamma || 0);
+            const rawRelativeGamma = event.gamma - (baseGamma || 0);
 
             // センサ値の 1/5（倍率 0.2）を反映
             let tiltXDeg = rawRelativeBeta * 0.2;
@@ -223,9 +223,9 @@ export default function Page() {
                 window.addEventListener("deviceorientation", handleDeviceOrientation);
             }
         } else {
-            window.addEventListener("mousemove", (event) => {
+            /*window.addEventListener("mousemove", (event) => {
                 // PC 用のマウス操作（必要に応じて実装してください）
-            });
+            });*/
         }
 
         window.addEventListener("resize", () => {
