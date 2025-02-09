@@ -148,7 +148,7 @@ export default function Page() {
 
         // 部屋のサイズ倍率（PC, SP で異なる）
         const roomRatioPC = canvasHeight / 300 * 0.6;
-        const roomRatioSP = canvasHeight / 300 * 0.4;
+        const roomRatioSP = canvasWidth / 300 * 0.9;
 
         // モバイル判定
         const isMobile = /iPhone|iPad|Android|Mobile/i.test(navigator.userAgent);
