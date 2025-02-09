@@ -139,12 +139,13 @@ export default function Page() {
         // ジャイロの基準角度（起動時または一定時間動きがなかったときの値）を保持
         let baseBeta: number | null = null;
         let baseGamma: number | null = null;
+        /*
         // 最後に十分な動きがあった時刻（初期は現在時刻）
         let lastMovementTime = Date.now();
         // 動きがないと判断する閾値（度単位）
         const movementThreshold = 0.5; // β, γともに 0.5°未満なら「動いていない」とみなす
         // 一定期間動きがなければ再キャリブレーション（ミリ秒）
-        const inactivityDuration = 3000; // 3秒
+        const inactivityDuration = 3000; // 3秒*/
 
         // 部屋のサイズ倍率（PC, SP で異なる）
         const roomRatioPC = canvasHeight / 300 * 0.6;
@@ -187,7 +188,7 @@ export default function Page() {
             // 横方向は符号反転して変換（※ここが修正ポイント）
             deviceRotationY = THREE.MathUtils.degToRad(-tiltYDeg);
 
-            // 動きが閾値以上なら最終動作時刻更新（β も含む）
+            /*// 動きが閾値以上なら最終動作時刻更新（β も含む）
             if (Math.abs(rawRelativeBeta) > movementThreshold || Math.abs(rawRelativeGamma) > movementThreshold) {
                 lastMovementTime = now;
             } else {
@@ -199,7 +200,7 @@ export default function Page() {
                     console.log("基準角度をリセットしました。", { baseBeta, baseGamma });
                     lastMovementTime = now;
                 }
-            }
+            }*/
         }
         // ハンドラーを ref に保存
         deviceOrientationHandlerRef.current = handleDeviceOrientation;
