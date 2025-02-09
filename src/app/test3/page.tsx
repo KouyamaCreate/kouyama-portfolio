@@ -157,7 +157,6 @@ export default function Page() {
         // deviceorientation イベントハンドラー
         function handleDeviceOrientation(event: DeviceOrientationEvent) {
             if (event.beta === null || event.gamma === null) return;
-            const now = Date.now();
 
             // 初回キャリブレーション時：両軸の初期値を保存する
             if (baseBeta === null) {
