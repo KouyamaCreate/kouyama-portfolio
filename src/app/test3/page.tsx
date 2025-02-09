@@ -131,9 +131,6 @@ export default function Page() {
         // PC用：マウス操作での回転補間変数
         let targetAngleX = 0;
         let targetAngleY = 0;
-        let currentAngleX = 0;
-        let currentAngleY = 0;
-        const animationSpeed = 0.3;
 
         // モバイル用：デバイスの向きを保持する変数（ラジアン）
         let deviceRotationX = 0;
@@ -148,6 +145,10 @@ export default function Page() {
         const movementThreshold = 0.5; // β, γともに 0.5°未満なら「動いていない」とみなす
         // 一定期間動きがなければ再キャリブレーション（ミリ秒）
         const inactivityDuration = 3000; // 3秒
+
+        // 部屋のサイズ倍率（PC, SP で異なる）
+        const roomRatioPC = canvasHeight / 300 * 0.6;
+        const roomRatioSP = canvasHeight / 300 * 0.4;
 
         // モバイル判定
         const isMobile = /iPhone|iPad|Android|Mobile/i.test(navigator.userAgent);
@@ -211,9 +212,12 @@ export default function Page() {
                 const moveY = (canvasHeight / 2 - mouseY) / 10;
                 targetAngleX = moveY / 100;
                 targetAngleY = moveX / 100;
-                currentAngleX += (targetAngleX - currentAngleX) * animationSpeed;
-                currentAngleY += (targetAngleY - currentAngleY) * animationSpeed;
-                roomModel.scale.set(canvasWidth / 300, canvasHeight / 300, 2.5);
+                if (isMobile) {
+                    roomModel.scale.set(roomRatioSP, roomRatioSP, roomRatioSP);
+                }
+                else {
+                    roomModel.scale.set(roomRatioPC, roomRatioPC, roomRatioPC);
+                }
             }
 
             const radius = 4;
@@ -231,8 +235,9 @@ export default function Page() {
                 camera.lookAt(0, 0, 0);
 
                 // オーバーレイの円にも同じ回転を適用
-                circleMesh.quaternion.copy(quaternion);
+                //circleMesh.quaternion.copy(quaternion);
             } else {
+
                 // PCの場合：従来通りマウス座標から計算
                 const rotationX = -1 * (mouseY - canvasHeight / 2) * 0.00012;
                 const rotationY = (mouseX - canvasWidth / 2) * 0.00003;
@@ -246,6 +251,58 @@ export default function Page() {
                 const intersection = new THREE.Vector3();
                 raycaster.ray.intersectPlane(planeZ, intersection);
                 circleMesh.position.copy(intersection);
+
+                const roomSizePC = canvasHeight * 0.65;
+
+                const roomLU = { x: canvasWidth / 2 - roomSizePC / 2, y: canvasHeight / 2 - roomSizePC / 2 };
+                const roomRU = { x: canvasWidth / 2 + roomSizePC / 2, y: canvasHeight / 2 - roomSizePC / 2 };
+                const roomLD = { x: canvasWidth / 2 - roomSizePC / 2, y: canvasHeight / 2 + roomSizePC / 2 };
+                const roomRD = { x: canvasWidth / 2 + roomSizePC / 2, y: canvasHeight / 2 + roomSizePC / 2 };
+
+                const backWallLU = { x: canvasWidth / 2 - roomSizePC / 4, y: canvasHeight / 2 - roomSizePC / 4 }
+                const backWallRD = { x: canvasWidth / 2 + roomSizePC / 4, y: canvasHeight / 2 + roomSizePC / 4 }
+
+                const center = { x: canvasWidth / 2, y: canvasHeight / 2 };
+
+                // 傾きの計算（領域に応じて角度設定）
+                // 中央の「その他」領域
+                if (mouseX > backWallLU.x && mouseX < backWallRD.x && mouseY > backWallLU.y && mouseY < backWallRD.y) {
+                    targetAngleX = 0; // 中央
+                    targetAngleY = 0;
+                }
+
+                // 上の三角形
+                else if (isPointInTriangle(mouseX, mouseY, roomLU.x, roomLU.y, roomRU.x, roomRU.y, center.x, center.y)) {
+                    targetAngleX = -Math.PI / 4; // 上
+                    targetAngleY = 0;
+                }
+                // 下の三角形
+                else if (isPointInTriangle(mouseX, mouseY, roomLD.x, roomLD.y, roomRD.x, roomRD.y, center.x, center.y)) {
+                    targetAngleX = Math.PI / 4; // 下
+                    targetAngleY = 0;
+                }
+
+                // 左の三角形
+                else if (isPointInTriangle(mouseX, mouseY, roomLU.x, roomLU.y, roomLD.x, roomLD.y, center.x, center.y)) {
+                    targetAngleX = 0;
+                    targetAngleY = -Math.PI / 4; // 左
+                }
+
+                // 右の三角形
+                else if (isPointInTriangle(mouseX, mouseY, roomRU.x, roomRU.y, roomRD.x, roomRD.y, center.x, center.y)
+                ) {
+                    targetAngleX = 0;
+                    targetAngleY = Math.PI / 4; // 右
+                }
+
+                else {
+                    targetAngleX = 0; // 中央
+                    targetAngleY = 0;
+                }
+
+                // 円の傾きを適用
+                circleMesh.rotation.x = targetAngleX;
+                circleMesh.rotation.y = targetAngleY;
             }
         };
 
@@ -354,4 +411,26 @@ export default function Page() {
             )}
         </>
     );
+}
+
+// 2Dベクトルの三角形内判定
+function isPointInTriangle(px: number, py: number,
+    ax: number, ay: number,
+    bx: number, by: number,
+    cx: number, cy: number): boolean {
+    // 三角形の面積を求めるヘルパー関数
+    function area(x1: number, y1: number, x2: number, y2: number, x3: number, y3: number): number {
+        return Math.abs((x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2)) / 2);
+    }
+
+    // 三角形ABCの面積
+    const areaABC = area(ax, ay, bx, by, cx, cy);
+
+    // 部分三角形ABP, BCP, CAPの面積
+    const areaABP = area(ax, ay, bx, by, px, py);
+    const areaBCP = area(bx, by, cx, cy, px, py);
+    const areaCAP = area(cx, cy, ax, ay, px, py);
+
+    // 合計が元の三角形の面積と等しければ内包される
+    return Math.abs(areaABC - (areaABP + areaBCP + areaCAP)) < 1e-10;
 }
